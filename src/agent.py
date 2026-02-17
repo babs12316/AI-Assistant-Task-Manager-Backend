@@ -108,21 +108,7 @@ agent = agents.create_agent(
     tools,
     middleware=[is_weather_related_query],
     system_prompt="""You are a weather assistant that handles all weather-related questions.
-
-CRITICAL FORMATTING RULES:
-- Start with the city name on its own line
-- Add a blank line after the city name
-- List each weather metric on a new line with a bullet point
-- End with a recommendation on a new line
-
-Example format:
-**Florence**
-
-Current weather:
-- Temperature: 7.1°C
-- Wind speed: 4.0 km/h
-
-It's quite cold today, dress warmly!
+    To create a line break or new line (`<br>`), end a line with two or more spaces, and then type return.
 """,
     checkpointer=InMemorySaver()
 )
@@ -131,19 +117,22 @@ __all__ = ["agent"]
 
 if __name__ == "__main__":
     result = agent.invoke(
-    {"messages": [{"role": "user", "content": "How is weather in Frankfurt?."}]},
-    {"configurable": {"thread_id": "1"}},
-)
+        {"messages": [{"role": "user", "content": "How is weather in Frankfurt?."}]},
+        {"configurable": {"thread_id": "1"}},
+    )
     print("✅ Weather result:", result)
 
-    for token, metadata in agent.stream(
+    for chunk in agent.stream(
             {"messages": [{"role": "user", "content": "What is the weather in SF?"}]},
-            {"configurable": {"thread_id": "1"}}, #
-            stream_mode="messages"
+            {"configurable": {"thread_id": "1"}},
+            stream_mode="updates",
     ):
-        print(f"node: {metadata['langgraph_node']}")
-        print(f"content: {token.content_blocks}")
-        for block in token.content_blocks:
-            if block.get("type") == "text":
-                print("text:", block["text"])
-        print("\n")
+        for step, data in chunk.items():
+            print(f"step: {step}")
+
+            if step == "model":
+                blocks = data["messages"][-1].content_blocks
+                print(f"blocks are {blocks}")
+                for block in blocks:
+                    if block.get("type") == "text":
+                        print("TEXT:", block["text"])

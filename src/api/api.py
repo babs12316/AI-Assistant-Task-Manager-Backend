@@ -35,22 +35,24 @@ class ChatInput(BaseModel):
 def stream_response(message: str):
     """Generator function that yields SSE chunks"""
     from src.agent import agent
-    first_block = True
-    for token, metadata in agent.stream(
+    for chunk in agent.stream(
             {"messages": [{"role": "user", "content": message}]},
             {"configurable": {"thread_id": "1"}},
-            stream_mode="messages",
+            stream_mode="updates",
     ):
+        for step, data in chunk.items():
+            print(f"step: {step}")
 
-        for block in token.content_blocks:
-            if block.get("type") == "text":
-                if first_block and block.get('text') != "I can only answer weather-related queries":
-                    first_block = False
-                    continue
-                # Yield each text chunk as SSE
-                yield f"data: {block['text']}\n\n"
-
-
+            if step == "model":
+                blocks = data["messages"][-1].content_blocks
+                print(f"blocks are {blocks}")
+                for block in blocks:
+                    if block.get("type") == "text":
+                        print("TEXT:", block["text"])
+                        text = block["text"]
+                        for line in text.split("\n"):
+                            yield f"data: {line}\n"
+                        yield "\n"
 
 
 @app.post("/chat")
