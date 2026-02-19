@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.tools import tool
 from langchain import agents
-from langchain.agents.middleware import before_agent, AgentState
+from langchain.agents.middleware import before_agent, AgentState, before_model
 from langgraph.runtime import Runtime
 from langchain.messages import AIMessage
 import httpx
@@ -19,6 +19,10 @@ WEATHER_KEYWORDS = [
 ]
 
 
+class CustomAgentState(AgentState):
+    preferences: dict = {}
+
+
 class WeatherReport(BaseModel):
     city: str
     temperature: float = Field(..., description="temp in Celsius (e.g. 22.5)")
@@ -26,14 +30,23 @@ class WeatherReport(BaseModel):
     city: str = Field(..., description="City name")
 
 
+@before_model()
+def get_user_preferences(state: CustomAgentState, runtime: Runtime):
+    msg = state["messages"][-1].content
+    if "fahrenheit" in msg:
+        state["preferences"]["temperature"] = "fahrenheit"
+    else:
+        state["preferences"]["temperature"] = "degree celsius"
+
+
 @before_agent(can_jump_to=["end"])
-def is_weather_related_query(state: AgentState, runtime: Runtime):
+def is_weather_related_query(state: CustomAgentState, runtime: Runtime):
     print("hey State message", state["messages"][-1].content)
     is_weather_related = any(keyword in state["messages"][-1].content for keyword in WEATHER_KEYWORDS)
     if is_weather_related is False:
         return {
             "messages": [AIMessage("I can only answer weather-related queries")],
-            "jump_to": "end"
+            "goto": "end"
         }
 
     return None
@@ -110,7 +123,8 @@ agent = agents.create_agent(
     system_prompt="""You are a weather assistant that handles all weather-related questions.
     To create a line break or new line (`<br>`), end a line with two or more spaces, and then type return.
 """,
-    checkpointer=InMemorySaver()
+    checkpointer=InMemorySaver(),
+    state_schema=CustomAgentState
 )
 
 __all__ = ["agent"]
