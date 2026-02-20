@@ -30,14 +30,15 @@ app.add_middleware(
 
 class ChatInput(BaseModel):
     message: str
+    thread_id: str
 
 
-def stream_response(message: str):
+def stream_response(message: str, thread_id: str):
     """Generator function that yields SSE chunks"""
     from src.agent import agent
     for chunk in agent.stream(
             {"messages": [{"role": "user", "content": message}]},
-            {"configurable": {"thread_id": "1"}},
+            {"configurable": {"thread_id": thread_id}},
             stream_mode="updates",
     ):
         for step, data in chunk.items():
@@ -58,7 +59,7 @@ def stream_response(message: str):
 @app.post("/chat")
 def chat(request: ChatInput):
     return StreamingResponse(
-        stream_response(request.message),  # Pass the generator
+        stream_response(request.message, request.thread_id),  # Pass the generator
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
