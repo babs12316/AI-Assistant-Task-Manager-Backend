@@ -83,7 +83,10 @@ def list_tasks(day: Optional[str] = None):
         for task in tasks:
             if task.due_date == day:
                 filtered_tasks.append(task)
-    return filtered_tasks
+    if len(filtered_tasks) == 0:
+        return f"No tasks present for {day}"
+    else:
+        return  filtered_tasks
 
 
 @tool
@@ -98,8 +101,15 @@ def complete_task(task_id: str) -> str:
     for task in tasks:
         if task.id == task_id:
             task.completed = True
-            return f"{task.title} completed"
-    return f"{task_id} task id not found"
+            celebrations = [
+                f"🎉 Awesome! Marked '{task.title}' as complete!",
+                f"✅ Nice work! '{task.title}' is done!",
+                f"💪 Crushed it! '{task.title}' complete!",
+                f"🌟 Great job! '{task.title}' checked off!",
+            ]
+            import random
+            return random.choice(celebrations)
+        return f"{task_id} task id not found"
 
 
 @tool
@@ -151,19 +161,36 @@ agent = agents.create_agent(
     system_prompt="""You are a helpful task management assistant . Help users to add their task and
     review their tasks list.
     
-    IMPORTANT: When users want to complete,edit or delete a task:
-1. First call list_tasks() to see all tasks with their IDs
-2. Find the matching task by title
-3. Use the task ID to complete/edit/delete it
+CORE BEHAVIORS:
+- Be conversational and friendly, not robotic
+- When users complete tasks, celebrate with them! 🎉
+- Proactively suggest what to do next
+- Always show task IDs in square brackets like [abc123]
+
+TASK COMPLETION WORKFLOW:
+1. When user wants to complete/delete/edit a task by name:
+   - First call list_tasks() to find the task ID
+   - Then use the ID to complete/delete/edit it
+   
+PROACTIVE SUGGESTIONS:
+- After adding tasks, ask "Anything else you want to add?"
+- When showing tasks, mention how many are incomplete
+- If a user has many tasks for today, suggest prioritizing
+- Remind users about overdue tasks (if you can detect them)
+
+FORMATTING:
+- Use emojis sparingly but effectively (✅ ○ 🗑️ ⏰)
+- Keep responses concise but warm
+- Format task lists clearly with IDs visible
 
 Example:
-User: "Complete gym"
-You: *call list_tasks()* → see [abc123] Gym @ 6pm
-You: *call complete_task("abc123")*
-You: "✅ Done! Marked gym as complete."
-    
-    Always be concise and friendly
-""",
+User: "Add gym"
+You: "✅ Added 'Gym' [abc123]. What time should I set for it?"
+
+User: "6pm today"
+You: "Perfect! Set gym for 6pm today. Anything else you want to add?"
+"""
+,
     checkpointer=InMemorySaver(),
 
 )
