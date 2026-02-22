@@ -86,16 +86,83 @@ def list_tasks(day: Optional[str] = None):
     return filtered_tasks
 
 
+@tool
+def complete_task(task_id: str) -> str:
+    """
+    Mark a task completed using its ID
+
+      Args:
+        task_id: The task ID (e.g., 'abc12345')
+
+    """
+    for task in tasks:
+        if task.id == task_id:
+            task.completed = True
+            return f"{task.title} completed"
+    return f"{task_id} task id not found"
+
+
+@tool
+def edit_task(task_id: str, updated_title: str, updated_due_date: Optional[str] = None,
+              updated_due_time: Optional[str] = None) -> str:
+    """
+    Edit task by task id
+    Args:
+        task_id : The task ID (e.g., 'abc12345')
+        updated_title: new/updated title of task
+        updated_due_time: new/updated due time, its Optional arg
+        updated_due_date: new/updated due date, its Optional args
+    """
+
+    for task in tasks:
+        if task.id == task_id:
+            task.title = updated_title
+            if updated_due_date is not None:
+                task.due_date = updated_due_date
+            if updated_due_time is not None:
+                task.due_time = updated_due_time
+            return f"{task_id} updated with title  {updated_title}, due date {updated_due_date}, due time {updated_due_time} "
+        return "f{task_id} not found"
+
+
+@tool
+def delete_task(task_id: str) -> str:
+    """
+    Deletes task by id
+
+    args:
+    task_id: The task ID (e.g., 'abc12345')
+    """
+    for task in tasks:
+        if task.id == task_id:
+            tasks.remove(task)
+        return f"{task_id} deleted"
+    return f"{task_id} not found"
+
+
 llm = ChatGroq(model="openai/gpt-oss-120b")
 
-tools = [add_task, list_tasks]
+tools = [add_task, list_tasks, complete_task, edit_task, delete_task]
 
 agent = agents.create_agent(
     llm,
     tools,
 
     system_prompt="""You are a helpful task management assistant . Help users to add their task and
-    review their tasks list.Always be concise and friendly
+    review their tasks list.
+    
+    IMPORTANT: When users want to complete,edit or delete a task:
+1. First call list_tasks() to see all tasks with their IDs
+2. Find the matching task by title
+3. Use the task ID to complete/edit/delete it
+
+Example:
+User: "Complete gym"
+You: *call list_tasks()* → see [abc123] Gym @ 6pm
+You: *call complete_task("abc123")*
+You: "✅ Done! Marked gym as complete."
+    
+    Always be concise and friendly
 """,
     checkpointer=InMemorySaver(),
 
@@ -104,18 +171,18 @@ agent = agents.create_agent(
 __all__ = ["agent"]
 
 if __name__ == "__main__":
-    result= agent.invoke(
+    result = agent.invoke(
         {"messages": [{"role": "user", "content": "Call Mom tomorrow"}]},
         {"configurable": {"thread_id": "1"}}
     )
-    print("response",result["messages"][-1].content)
+    print("response", result["messages"][-1].content)
     result = agent.invoke(
         {"messages": [{"role": "user", "content": "go to gym 6pm today"}]},
         {"configurable": {"thread_id": "1"}}
     )
     print("response", result["messages"][-1].content)
-    result= agent.invoke(
-        {"messages":[{"role":"user", "content":"show me today's tasks"}]},
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": "show me today's tasks"}]},
         {"configurable": {"thread_id": "1"}}
     )
     print("response", result["messages"][-1].content)
