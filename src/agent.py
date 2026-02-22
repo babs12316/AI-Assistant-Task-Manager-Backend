@@ -8,8 +8,23 @@ from langchain.messages import AIMessage
 import httpx
 from pydantic import BaseModel, Field
 from langgraph.checkpoint.memory import InMemorySaver
+from datetime import datetime
+from typing import Optional, List
+import uuid
 
 load_dotenv()
+
+
+class Task(BaseModel):
+    id: str
+    title: str
+    completed: bool = False
+    created_at: datetime = datetime.now()
+    due_date: Optional[str] = None
+    due_time: Optional[str] = None
+
+
+tasks: List[Task] = []
 
 WEATHER_KEYWORDS = [
     'weather', 'temperature', 'rain', 'snow', 'sunny', 'cloudy',
@@ -30,123 +45,171 @@ class WeatherReport(BaseModel):
     city: str = Field(..., description="City name")
 
 
-@before_model()
-def get_user_preferences(state: CustomAgentState, runtime: Runtime):
-    msg = state["messages"][-1].content
-    if "fahrenheit" in msg:
-        state["preferences"]["temperature"] = "fahrenheit"
-    else:
-        state["preferences"]["temperature"] = "degree celsius"
+@tool
+def add_task(title: str, due_date: Optional[str] = None, due_time: Optional[str] = None):
+    """adds task to tasks list
+    Args:
+    title : task description (Ex: Buy groceries)
+    due_date: optional date like today or tomorrow , or "2026-02-21"
+    due_time: optional like "18:00" or "6PM"
+    """
 
+    task_id = str(uuid.uuid4())[:8]
+    new_task = Task(
+        id=task_id,
+        title=title,
+        due_date=due_date,
+        due_time=due_time,
+        completed=False,
+        created_at=datetime.now().isoformat()
 
-@before_agent(can_jump_to=["end"])
-def is_weather_related_query(state: CustomAgentState, runtime: Runtime):
-    print("hey State message", state["messages"][-1].content)
-    is_weather_related = any(keyword in state["messages"][-1].content for keyword in WEATHER_KEYWORDS)
-    if is_weather_related is False:
-        return {
-            "messages": [AIMessage("I can only answer weather-related queries")],
-            "goto": "end"
-        }
-
-    return None
+    )
+    tasks.append(new_task)
+    return f"added task {title} with id {task_id} "
 
 
 @tool
-def get_weather(city: str) -> WeatherReport | str:
+def list_tasks(day: Optional[str] = None):
     """
-    Get current weather for ANY city worldwide using Open-Meteo (free API).
-
-    Provides:
-    • Temperature (°C)
-    • Wind speed (km/h)
-
-    INPUT: City name only (e.g., "London", "New York", "Tokyo")
-    OUTPUT: Current conditions summary
-
-    Handles: 10,000+ cities, auto-geocoding, error handling.
+    Provides list of tasks for given day
+    args:
+     day: "today", "tomorrow" or date like 2026-2-21. If None provided shows all tasks
     """
-    try:
-        # 1️⃣ Geocode city → lat/lon
-        geo_url = "https://geocoding-api.open-meteo.com/v1/search"
-        geo_params = {
-            "name": city,
-            "count": 1,
-            "language": "en",
-            "format": "json"
-        }
 
-        with httpx.Client(timeout=10) as client:
-            geo_resp = client.get(geo_url, params=geo_params)
-            geo_resp.raise_for_status()
-            geo_data = geo_resp.json()
+    filtered_tasks = []
+    if day is None:
+        filtered_tasks = tasks
+    else:
+        for task in tasks:
+            if task.due_date == day:
+                filtered_tasks.append(task)
+    if len(filtered_tasks) == 0:
+        return f"No tasks present for {day}"
+    else:
+        return  filtered_tasks
 
-        if "results" not in geo_data:
-            return f"Sorry, I couldn't find weather data for {city}."
 
-        location = geo_data["results"][0]
-        lat = location["latitude"]
-        lon = location["longitude"]
+@tool
+def complete_task(task_id: str) -> str:
+    """
+    Mark a task completed using its ID
 
-        # 2️⃣ Get current weather
-        weather_url = "https://api.open-meteo.com/v1/forecast"
-        weather_params = {
-            "latitude": lat,
-            "longitude": lon,
-            "current_weather": True
-        }
+      Args:
+        task_id: The task ID (e.g., 'abc12345')
 
-        with httpx.Client(timeout=10) as client:
-            weather_resp = client.get(weather_url, params=weather_params)
-            weather_resp.raise_for_status()
-            weather_data = weather_resp.json()
+    """
+    for task in tasks:
+        if task.id == task_id:
+            task.completed = True
+            celebrations = [
+                f"🎉 Awesome! Marked '{task.title}' as complete!",
+                f"✅ Nice work! '{task.title}' is done!",
+                f"💪 Crushed it! '{task.title}' complete!",
+                f"🌟 Great job! '{task.title}' checked off!",
+            ]
+            import random
+            return random.choice(celebrations)
+        return f"{task_id} task id not found"
 
-        current = weather_data["current_weather"]
 
-        temperature = current["temperature"]
-        windspeed = current["windspeed"]
+@tool
+def edit_task(task_id: str, updated_title: str, updated_due_date: Optional[str] = None,
+              updated_due_time: Optional[str] = None) -> str:
+    """
+    Edit task by task id
+    Args:
+        task_id : The task ID (e.g., 'abc12345')
+        updated_title: new/updated title of task
+        updated_due_time: new/updated due time, its Optional arg
+        updated_due_date: new/updated due date, its Optional args
+    """
 
-        return WeatherReport(temperature=temperature, windspeed=windspeed, city=city)
+    for task in tasks:
+        if task.id == task_id:
+            task.title = updated_title
+            if updated_due_date is not None:
+                task.due_date = updated_due_date
+            if updated_due_time is not None:
+                task.due_time = updated_due_time
+            return f"{task_id} updated with title  {updated_title}, due date {updated_due_date}, due time {updated_due_time} "
+        return "f{task_id} not found"
 
-    except Exception as e:
-        return f"Failed to fetch weather for {city}: {str(e)}"
+
+@tool
+def delete_task(task_id: str) -> str:
+    """
+    Deletes task by id
+
+    args:
+    task_id: The task ID (e.g., 'abc12345')
+    """
+    for task in tasks:
+        if task.id == task_id:
+            tasks.remove(task)
+        return f"{task_id} deleted"
+    return f"{task_id} not found"
 
 
 llm = ChatGroq(model="openai/gpt-oss-120b")
 
-tools = [get_weather]
+tools = [add_task, list_tasks, complete_task, edit_task, delete_task]
 
 agent = agents.create_agent(
     llm,
     tools,
-    middleware=[is_weather_related_query],
-    system_prompt="""You are a weather assistant that handles all weather-related questions.
-    To create a line break or new line (`<br>`), end a line with two or more spaces, and then type return.
-""",
+
+    system_prompt="""You are a helpful task management assistant . Help users to add their task and
+    review their tasks list.
+    
+CORE BEHAVIORS:
+- Be conversational and friendly, not robotic
+- When users complete tasks, celebrate with them! 🎉
+- Proactively suggest what to do next
+- Always show task IDs in square brackets like [abc123]
+
+TASK COMPLETION WORKFLOW:
+1. When user wants to complete/delete/edit a task by name:
+   - First call list_tasks() to find the task ID
+   - Then use the ID to complete/delete/edit it
+   
+PROACTIVE SUGGESTIONS:
+- After adding tasks, ask "Anything else you want to add?"
+- When showing tasks, mention how many are incomplete
+- If a user has many tasks for today, suggest prioritizing
+- Remind users about overdue tasks (if you can detect them)
+
+FORMATTING:
+- Use emojis sparingly but effectively (✅ ○ 🗑️ ⏰)
+- Keep responses concise but warm
+- Format task lists clearly with IDs visible
+
+Example:
+User: "Add gym"
+You: "✅ Added 'Gym' [abc123]. What time should I set for it?"
+
+User: "6pm today"
+You: "Perfect! Set gym for 6pm today. Anything else you want to add?"
+"""
+,
     checkpointer=InMemorySaver(),
-    state_schema=CustomAgentState
+
 )
 
 __all__ = ["agent"]
 
 if __name__ == "__main__":
     result = agent.invoke(
-        {"messages": [{"role": "user", "content": "How is weather in Frankfurt?."}]},
-        {"configurable": {"thread_id": "1"}},
+        {"messages": [{"role": "user", "content": "Call Mom tomorrow"}]},
+        {"configurable": {"thread_id": "1"}}
     )
-    print("✅ Weather result:", result)
-
-    for chunk in agent.stream(
-            {"messages": [{"role": "user", "content": "What is the weather in SF?"}]},
-            {"configurable": {"thread_id": "1"}},
-            stream_mode="updates",
-    ):
-        for step, data in chunk.items():
-            print(f"step: {step}")
-
-            if step == "model":
-                blocks = data["messages"][-1].content_blocks
-                print(f"blocks are {blocks}")
-                for block in blocks:
-                    if block.get("type") == "text":
-                        print("TEXT:", block["text"])
+    print("response", result["messages"][-1].content)
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": "go to gym 6pm today"}]},
+        {"configurable": {"thread_id": "1"}}
+    )
+    print("response", result["messages"][-1].content)
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": "show me today's tasks"}]},
+        {"configurable": {"thread_id": "1"}}
+    )
+    print("response", result["messages"][-1].content)
