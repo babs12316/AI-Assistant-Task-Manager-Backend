@@ -53,7 +53,7 @@ def stream_response(message: str, thread_id: str):
                         text = block["text"]
                         for line in text.split("\n"):
                             yield f"data: {line}\n"
-                        yield "\n"
+                        yield "data: [DONE]\n\n"
 
 
 @app.post("/chat")

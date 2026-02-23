@@ -86,7 +86,7 @@ def list_tasks(day: Optional[str] = None):
     if len(filtered_tasks) == 0:
         return f"No tasks present for {day}"
     else:
-        return  filtered_tasks
+        return filtered_tasks
 
 
 @tool
@@ -109,7 +109,7 @@ def complete_task(task_id: str) -> str:
             ]
             import random
             return random.choice(celebrations)
-        return f"{task_id} task id not found"
+    return f"{task_id} task id not found"
 
 
 @tool
@@ -132,7 +132,7 @@ def edit_task(task_id: str, updated_title: str, updated_due_date: Optional[str] 
             if updated_due_time is not None:
                 task.due_time = updated_due_time
             return f"{task_id} updated with title  {updated_title}, due date {updated_due_date}, due time {updated_due_time} "
-        return "f{task_id} not found"
+    return "f{task_id} not found"
 
 
 @tool
@@ -190,12 +190,18 @@ You: "✅ Added 'Gym' [abc123]. What time should I set for it?"
 User: "6pm today"
 You: "Perfect! Set gym for 6pm today. Anything else you want to add?"
 """
-,
+    ,
     checkpointer=InMemorySaver(),
 
 )
 
-__all__ = ["agent"]
+__all__ = ["agent",
+           "add_task",
+           "list_tasks",
+           "complete_task",
+           "edit_task",
+           "delete_task",
+           "tasks"]
 
 if __name__ == "__main__":
     result = agent.invoke(

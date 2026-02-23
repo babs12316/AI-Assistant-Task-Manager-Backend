@@ -289,6 +289,7 @@ dependencies = [
     { name = "langchain-groq" },
     { name = "langgraph" },
     { name = "langgraph-api" },
+    { name = "pytest" },
     { name = "python-dotenv" },
 ]
 
@@ -306,6 +307,7 @@ requires-dist = [
     { name = "langchain-groq", specifier = ">=1.1.1" },
     { name = "langgraph", specifier = ">=1.0.7" },
     { name = "langgraph-api", specifier = ">=0.7.9" },
+    { name = "pytest", specifier = ">=9.0.2" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
 ]
 
