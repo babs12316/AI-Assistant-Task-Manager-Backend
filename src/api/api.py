@@ -12,16 +12,10 @@ app = FastAPI()
 
 app.include_router(health_router)
 
-WEATHER_KEYWORDS = [
-    'weather', 'temperature', 'rain', 'snow', 'sunny', 'cloudy',
-    'forecast', 'climate', 'humidity', 'wind', 'storm', 'thunder',
-    'cold', 'hot', 'warm', 'cool', 'precipitation', 'degrees',
-    'celsius', 'fahrenheit', 'overcast', 'drizzle', 'hail'
-]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://first-agent-ui.vercel.app"],
+    allow_origins=["http://localhost:5173", "https://tasky22.vercel.app/"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,7 +47,7 @@ def stream_response(message: str, thread_id: str):
                         text = block["text"]
                         for line in text.split("\n"):
                             yield f"data: {line}\n"
-                        yield "\n"
+                        yield "data: [DONE]\n\n"
 
 
 @app.post("/chat")
