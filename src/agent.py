@@ -160,7 +160,7 @@ PROACTIVE SUGGESTIONS:
 - Remind users about overdue tasks (if you can detect them)
 
 FORMATTING:
-- Use emojis sparingly but effectively (✅ ○ 🗑️ ⏰)
+- Use emojis sparingly but effectively (✅ ❌ ○ 🗑️ ⏰)
 - Keep responses concise but warm
 - Format task lists clearly with IDs visible
 
