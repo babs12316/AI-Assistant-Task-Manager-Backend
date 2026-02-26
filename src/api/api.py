@@ -46,7 +46,9 @@ def stream_response(message: str, thread_id: str):
                         print("TEXT:", block["text"])
                         text = block["text"]
                         for line in text.split("\n"):
-                            yield f"data: {line}\n\n"
+                            yield f"data: {line}\n"
+
+                        yield "\n"
                         yield "data: [DONE]\n\n"
 
 
