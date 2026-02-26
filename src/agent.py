@@ -26,25 +26,6 @@ class Task(BaseModel):
 
 tasks: List[Task] = []
 
-WEATHER_KEYWORDS = [
-    'weather', 'temperature', 'rain', 'snow', 'sunny', 'cloudy',
-    'forecast', 'climate', 'humidity', 'wind', 'storm', 'thunder',
-    'cold', 'hot', 'warm', 'cool', 'precipitation', 'degrees',
-    'celsius', 'fahrenheit', 'overcast', 'drizzle', 'hail'
-]
-
-
-class CustomAgentState(AgentState):
-    preferences: dict = {}
-
-
-class WeatherReport(BaseModel):
-    city: str
-    temperature: float = Field(..., description="temp in Celsius (e.g. 22.5)")
-    windspeed: float = Field(..., description="Wind speed km/h (e.g. 12.3)")
-    city: str = Field(..., description="City name")
-
-
 @tool
 def add_task(title: str, due_date: Optional[str] = None, due_time: Optional[str] = None):
     """adds task to tasks list
